@@ -1,0 +1,50 @@
+name: Dependencies
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"  # every Monday at 04:00 UTC
+  workflow_dispatch:       # allow manual trigger from GitHub UI
+
+jobs:
+  pip-audit:
+    name: Audit Python dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install project + pip-audit
+        run: |
+          pip install -e ".[test]"
+          pip install pip-audit
+
+      - name: Run pip-audit
+        run: pip-audit --format=markdown --output=audit-report.md
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: audit-report.md
+
+  outdated:
+    name: Check for outdated packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install project
+        run: pip install -e ".[test]"
+
+      - name: List outdated packages
+        run: pip list --outdated --format=columns

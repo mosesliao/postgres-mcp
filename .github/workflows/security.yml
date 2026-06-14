@@ -1,0 +1,76 @@
+name: Security
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    - cron: "0 3 * * 1"  # every Monday at 03:00 UTC
+
+jobs:
+  bandit:
+    name: Bandit (SAST)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Bandit
+        run: pip install bandit[toml]
+
+      - name: Run Bandit
+        run: bandit -r server.py -ll -f json -o bandit-report.json
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+  pip-audit:
+    name: pip-audit (dependency vulnerabilities)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Audit dependencies
+        run: pip-audit --requirement <(pip install -e . --dry-run -q 2>&1 | grep "Would install" | tr ' ' '\n' | grep '==' | sed 's/^//' ) || pip-audit -r <(pip install -e . -q && pip freeze)
+
+  codeql:
+    name: CodeQL (semantic analysis)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
