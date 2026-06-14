@@ -20,13 +20,6 @@ htmlcov/
 .coverage
 coverage.xml
 
-# Generated output
-img/*.png
-img/*.jpg
-img/*.jpeg
-img/*.gif
-img/*.webp
-
 # Node
 node_modules/
 package-lock.json
