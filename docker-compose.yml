@@ -1,4 +1,15 @@
 services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
   db:
     build: ./docker/postgres
     environment:
@@ -29,11 +40,13 @@ services:
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
-    ports:
-      - "3000:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.open-webui.rule=Host(`openwebui.localhost`)"
+      - "traefik.http.routers.open-webui.entrypoints=web"
+      - "traefik.http.services.open-webui.loadbalancer.server.port=8080"
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      # Disable Ollama since we're using Claude
       OLLAMA_BASE_URL: ""
       ENABLE_OLLAMA_API: "false"
     volumes:
