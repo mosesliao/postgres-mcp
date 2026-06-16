@@ -82,7 +82,55 @@ pip install "mcp[cli]>=1.0.0" psycopg2-binary python-dotenv
 
 ## Connecting to Claude
 
-### Option A — Claude Code CLI (recommended)
+### Option A — Open WebUI (no Claude Desktop required)
+
+Open WebUI gives any user a browser-based chat interface connected to Claude and the Northwind MCP server. No local Python or Claude Desktop install needed.
+
+**1. Add your Anthropic API key to `.env`:**
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in your key:
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+**2. Start all services:**
+
+```bash
+docker compose up -d
+```
+
+This starts three containers:
+- `db` — Northwind PostgreSQL database
+- `mcp` — MCP server in HTTP/SSE mode on port 8000
+- `open-webui` — Web UI on port 3000
+
+**3. Open the UI:**
+
+Go to [http://localhost:3000](http://localhost:3000) and create an admin account on first launch.
+
+**4. Connect Claude:**
+
+- Go to **Settings → Admin Panel → Connections**
+- Under **Direct Connections**, add a new connection:
+  - Provider: **Anthropic**
+  - API Key: your `ANTHROPIC_API_KEY`
+- Save and select a Claude model (e.g. `claude-sonnet-4-5`)
+
+**5. Connect the MCP server:**
+
+- Go to **Settings → Tools**
+- Add a new tool server with URL: `http://mcp:8000/sse`
+- Save — the Northwind tools (`list_tables`, `query`, etc.) will appear automatically
+
+You can now chat with Claude in the browser and it will query the Northwind database on your behalf.
+
+---
+
+### Option B — Claude Code CLI (recommended)
 
 Install Claude Code if you have not already:
 ```bash
@@ -109,7 +157,7 @@ claude
 ```
 Then ask: *"List the tables in my database"*
 
-### Option B — Claude Desktop (claude.ai)
+### Option C — Claude Desktop (claude.ai)
 
 Open your Claude Desktop config file:
 
@@ -205,6 +253,13 @@ Use the binary build which has no system dependencies:
 ```bash
 pip install psycopg2-binary
 ```
+
+**Open WebUI can't reach the MCP server**
+The tool URL must use the Docker service name, not `localhost`:
+```
+http://mcp:8000/sse
+```
+Using `localhost` won't work inside Docker — `mcp` is the correct hostname.
 
 **Port 5432 is already in use**
 Another PostgreSQL instance is running locally. Either stop it or change the port in `docker-compose.yml`:

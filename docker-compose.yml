@@ -15,5 +15,32 @@ services:
       timeout: 5s
       retries: 10
 
+  mcp:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/northwind
+      MCP_TRANSPORT: sse
+      MCP_PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    ports:
+      - "3000:8080"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      # Disable Ollama since we're using Claude
+      OLLAMA_BASE_URL: ""
+      ENABLE_OLLAMA_API: "false"
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - mcp
+
 volumes:
   pgdata:
+  open-webui:
