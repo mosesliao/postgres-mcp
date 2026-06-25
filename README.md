@@ -2,25 +2,23 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A read-only MCP (Model Context Protocol) server that connects Claude to the [Northwind](https://github.com/pthom/northwind_psql) sample PostgreSQL database. Ask Claude natural language questions and it will query the database on your behalf.
+A read-only MCP (Model Context Protocol) server that connects AI models to the [Northwind](https://github.com/pthom/northwind_psql) sample PostgreSQL database. Ask natural language questions and the model will query the database on your behalf.
 
 ---
 
 ## What is this?
 
-This project lets Claude act as a data analyst over the Northwind database — a classic sample dataset covering customers, orders, products, employees, and suppliers. Claude can list tables, inspect schemas, run SQL queries, and generate charts, all through a secure read-only connection.
+This project lets an AI model act as a data analyst over the Northwind database — a classic sample dataset covering customers, orders, products, employees, and suppliers. The model can list tables, inspect schemas, run SQL queries, and generate charts, all through a secure read-only connection.
 
 ---
 
 ## Prerequisites
 
-Before you start, make sure you have the following installed:
-
 | Tool | Version | Download |
 |------|---------|----------|
-| Python | 3.11+ | https://www.python.org/downloads |
 | Docker Desktop | Latest | https://www.docker.com/products/docker-desktop |
-| Node.js (for Claude Code) | 18+ | https://nodejs.org |
+| Node.js (for Claude Code only) | 18+ | https://nodejs.org |
+| Python (for Claude Code / Desktop only) | 3.11+ | https://www.python.org/downloads |
 
 ---
 
@@ -33,7 +31,19 @@ git clone <your-repo-url>
 cd postgres_mcp
 ```
 
-### 2. Start the database
+### 2. Set up your environment file
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in your Anthropic API key:
+```
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/northwind
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### 3. Start all services
 
 Docker Desktop must be running (look for the whale icon in your system tray).
 
@@ -42,59 +52,29 @@ docker compose up -d
 ```
 
 On first run this will:
-- Pull the `postgres:16` image
-- Download `northwind.sql` from GitHub (~2 minutes depending on your connection)
-- Initialise the database automatically
+- Pull the `postgres:16` and `open-webui` images
+- Download `northwind.sql` from GitHub and initialise the database
+- Start the MCP server and Open WebUI
 
-Verify the database is ready:
+Verify everything is ready:
 ```bash
 docker compose ps
 ```
-The `db` service should show `healthy`.
-
-### 3. Set up your environment file
-
-```bash
-cp .env.example .env
-```
-
-The default `.env` connects to the Docker container:
-```
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/northwind
-```
-
-No changes needed unless you are using a different PostgreSQL instance.
-
-### 4. Install Python dependencies
-
-```bash
-pip install -e .
-```
-
-> If you get a `hatchling` error, run `pip install hatchling` first, then retry.
-
-Alternatively, install dependencies directly without the editable install:
-```bash
-pip install "mcp[cli]>=1.0.0" psycopg2-binary python-dotenv
-```
+All services should show `running` and `db` should show `healthy`.
 
 ---
 
-## Connecting to Claude
+## Connecting to a model
 
-### Option A — Open WebUI (no Claude Desktop required)
+### Option A — Open WebUI + Ollama (browser-based, no API key needed)
 
-Open WebUI gives any user a browser-based chat interface connected to Claude and the Northwind MCP server. No local Python or Claude Desktop install needed.
+Open WebUI gives you a browser chat interface powered by a local Ollama model. No API key or cloud service required.
 
-**1. Add your Anthropic API key to `.env`:**
+**1. Make sure Ollama is running** with at least one model pulled:
 
 ```bash
-cp .env.example .env
-```
-
-Edit `.env` and fill in your key:
-```
-ANTHROPIC_API_KEY=sk-ant-...
+ollama pull llama3
+ollama serve
 ```
 
 **2. Start all services:**
@@ -103,38 +83,37 @@ ANTHROPIC_API_KEY=sk-ant-...
 docker compose up -d
 ```
 
-This starts three containers:
-- `db` — Northwind PostgreSQL database
-- `mcp` — MCP server in HTTP/SSE mode on port 8000
-- `open-webui` — Web UI on port 3000
+**3. Seed the Open WebUI config** (first time only — sets up the MCP connection automatically):
 
-**3. Open the UI:**
+```bash
+docker exec postgres_mcp-open-webui-1 python3 /app/backend/webui-init.py
+```
 
-Go to [http://localhost:3000](http://localhost:3000) and create an admin account on first launch.
+**4. Open the UI:**
 
-**4. Connect Claude:**
+Go to [http://openwebui.localhost](http://openwebui.localhost) and create an admin account on first launch.
 
-- Go to **Settings → Admin Panel → Connections**
-- Under **Direct Connections**, add a new connection:
-  - Provider: **Anthropic**
-  - API Key: your `ANTHROPIC_API_KEY`
-- Save and select a Claude model (e.g. `claude-sonnet-4-5`)
+**5. Verify connections:**
 
-**5. Connect the MCP server:**
+- Go to **Admin Settings → Connections** — Ollama should show as connected at `http://host.docker.internal:11434`
+- Go to **Settings → Tools** — `postgres-mcp` should be listed and connected at `http://mcp:8000/mcp`
 
-- Go to **Settings → Tools**
-- Add a new tool server with URL: `http://mcp:8000/sse`
-- Save — the Northwind tools (`list_tables`, `query`, etc.) will appear automatically
+You can now pick any Ollama model and chat — it will query the Northwind database through the MCP tools.
 
-You can now chat with Claude in the browser and it will query the Northwind database on your behalf.
+> **Tip:** Models that generate better charts: `qwen2.5-coder:7b`, `deepseek-coder-v2`, `phi4`. Pull with `ollama pull <model>`.
 
 ---
 
-### Option B — Claude Code CLI (recommended)
+### Option B — Claude Code CLI
 
 Install Claude Code if you have not already:
 ```bash
 npm install -g @anthropic-ai/claude-code
+```
+
+Start the database:
+```bash
+docker compose up -d db
 ```
 
 Register the MCP server:
@@ -157,7 +136,9 @@ claude
 ```
 Then ask: *"List the tables in my database"*
 
-### Option C — Claude Desktop (claude.ai)
+---
+
+### Option C — Claude Desktop
 
 Open your Claude Desktop config file:
 
@@ -180,13 +161,18 @@ Add the following inside `"mcpServers"`:
 }
 ```
 
+Start the database first:
+```bash
+docker compose up -d db
+```
+
 Restart Claude Desktop. The MCP tools will appear automatically in new conversations.
 
 ---
 
 ## Available tools
 
-Once connected, Claude has access to these tools:
+Once connected, the model has access to these tools:
 
 | Tool | Description |
 |------|-------------|
@@ -196,13 +182,16 @@ Once connected, Claude has access to these tools:
 | `query` | Runs any SELECT or WITH query (results capped at 500 rows) |
 | `get_schema` | Full schema overview — all tables and columns in one call |
 
-### Examples of claude prompts to generate reports from NorthWind DB
+### Example prompts
 
-- *"Show me monthly revenue for 1997, as a bar chart. Include a trend line and highlight the top 3 months."*
+- *"List all tables in the Northwind database"*
+- *"How many customers are there, and which countries do they come from?"*
+- *"Show me the top 10 best-selling products"*
+- *"Show monthly revenue for 1997 as a Chart.js bar chart"*
 
 ![Monthly Revenue](img/monthly-revenue-bar-chart.png)
 
-- *"Who are our top 20 customers by total spend? Show a horizontal bar chart and flag any who haven't ordered in 90+ days."*
+- *"Who are our top 20 customers by total spend? Show a horizontal bar chart."*
 
 ![Top 20 Customers](img/top20_customers.png)
 
@@ -219,23 +208,35 @@ Table and column names supplied by users are validated against a strict identifi
 
 ---
 
-## Stopping the database
+## Stopping
 
 ```bash
 docker compose down
 ```
 
-To also delete the stored data:
+To also delete stored data (resets the database and Open WebUI config):
 ```bash
 docker compose down -v
 ```
+
+> After `down -v`, re-run the webui-init step on next startup to restore the MCP connection config.
 
 ---
 
 ## Troubleshooting
 
 **`docker compose up` fails with "cannot find the file specified"**
-Docker Desktop is not running. Open it from the Start menu and wait for the whale icon to appear in the system tray before retrying.
+Docker Desktop is not running. Open it from the Start menu and wait for the whale icon in the system tray.
+
+**Open WebUI shows "Trouble accessing Ollama"**
+Ollama is not running. Start it with `ollama serve` in a terminal.
+
+**Open WebUI MCP connection fails**
+The tool URL must use the Docker service name, not `localhost`:
+```
+http://mcp:8000/mcp
+```
+Using `localhost` inside Docker will not work — `mcp` is the correct hostname.
 
 **`pip install -e .` fails with a hatchling error**
 ```bash
@@ -243,34 +244,22 @@ pip install hatchling
 pip install -e .
 ```
 
-**Claude says the MCP server is not connected**
-- Confirm the database is running: `docker compose ps`
-- Confirm `server.py` path in your MCP config is the full absolute path
-- Confirm `DATABASE_URL` matches your Docker setup
-
-**`psycopg2` installation fails on Windows**
-Use the binary build which has no system dependencies:
-```bash
-pip install psycopg2-binary
-```
-
-**Open WebUI can't reach the MCP server**
-The tool URL must use the Docker service name, not `localhost`:
-```
-http://mcp:8000/sse
-```
-Using `localhost` won't work inside Docker — `mcp` is the correct hostname.
-
 **Port 5432 is already in use**
-Another PostgreSQL instance is running locally. Either stop it or change the port in `docker-compose.yml`:
+Another PostgreSQL instance is running locally. Change the port in `docker-compose.yml`:
 ```yaml
 ports:
   - "5433:5432"
 ```
-Then update your `DATABASE_URL` to use port `5433`.
+Then update `DATABASE_URL` in `.env` to use port `5433`.
+
+**`psycopg2` installation fails on Windows**
+Use the binary build:
+```bash
+pip install psycopg2-binary
+```
 
 ---
 
 ## License
 
-This project is released under the [MIT License](LICENSE). You are free to use, modify, and distribute it for personal or commercial purposes, including connecting it to your own business database.
+This project is released under the [MIT License](LICENSE). You are free to use, modify, and distribute it for personal or commercial purposes.
