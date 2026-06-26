@@ -10,7 +10,7 @@ from mcp.server.fastmcp import FastMCP
 
 load_dotenv()
 
-mcp = FastMCP("postgres-northwind")
+mcp = FastMCP("postgres-northwind", host=os.environ.get("MCP_HOST", "127.0.0.1"))
 
 _SAFE_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
@@ -165,12 +165,8 @@ def get_schema() -> str:
 
 def main():
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
-    if transport == "sse":
-        mcp.run(
-            transport="sse",
-            host="0.0.0.0",
-            port=int(os.environ.get("MCP_PORT", "8000")),
-        )
+    if transport in ("sse", "streamable-http"):
+        mcp.run(transport=transport)
     else:
         mcp.run()
 

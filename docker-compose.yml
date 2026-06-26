@@ -1,4 +1,15 @@
 services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--providers.file.filename=/traefik/config.yaml"
+      - "--providers.file.watch=true"
+    ports:
+      - "80:80"
+    volumes:
+      - ./traefik-config.yaml:/traefik/config.yaml:ro
+
   db:
     build: ./docker/postgres
     environment:
@@ -18,9 +29,10 @@ services:
   mcp:
     build: .
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/northwind
-      MCP_TRANSPORT: sse
+      DATABASE_URL: postgresql://postgres:[REDACTED]@db:5432/northwind
+      MCP_TRANSPORT: streamable-http
       MCP_PORT: 8000
+      MCP_HOST: "0.0.0.0"
     ports:
       - "8000:8000"
     depends_on:
@@ -29,15 +41,20 @@ services:
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
-    ports:
-      - "3000:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.open-webui.rule=Host(`openwebui.localhost`)"
+      - "traefik.http.routers.open-webui.entrypoints=web"
+      - "traefik.http.services.open-webui.loadbalancer.server.port=8080"
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      # Disable Ollama since we're using Claude
-      OLLAMA_BASE_URL: ""
-      ENABLE_OLLAMA_API: "false"
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      ENABLE_OLLAMA_API: "true"
+      ENABLE_OPENAI_API: "false"
+      TOOL_SERVER_CONNECTIONS: '[{"url":"http://mcp:8000/mcp","type":"mcp","auth_type":"bearer","key":"","config":{"enable":true},"info":{"id":"1","name":"postgres-mcp","description":"Northwind PostgreSQL MCP"}}]'
     volumes:
       - open-webui:/app/backend/data
+      - ./webui-init.py:/app/backend/webui-init.py:ro
     depends_on:
       - mcp
 

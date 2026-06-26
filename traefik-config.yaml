@@ -1,0 +1,13 @@
+http:
+  routers:
+    open-webui:
+      rule: Host(`openwebui.localhost`)
+      service: open-webui-service
+      entryPoints:
+        - web
+
+  services:
+    open-webui-service:
+      loadBalancer:
+        servers:
+          - url: http://open-webui:8080
