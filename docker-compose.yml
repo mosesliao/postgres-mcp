@@ -1,6 +1,7 @@
 services:
   traefik:
     image: traefik:v3.0
+    restart: unless-stopped
     command:
       - "--entrypoints.web.address=:80"
       - "--providers.file.filename=/traefik/config.yaml"
@@ -12,6 +13,7 @@ services:
 
   db:
     build: ./docker/postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: northwind
       POSTGRES_USER: postgres
@@ -24,10 +26,12 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres -d northwind"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
+      start_period: 30s
 
   mcp:
     build: .
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:[REDACTED]@db:5432/northwind
       MCP_TRANSPORT: streamable-http
@@ -38,9 +42,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import socket; s=socket.create_connection(('localhost',8000),timeout=3); s.close()\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
+    restart: unless-stopped
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.open-webui.rule=Host(`openwebui.localhost`)"
@@ -54,9 +65,10 @@ services:
       TOOL_SERVER_CONNECTIONS: '[{"url":"http://mcp:8000/mcp","type":"mcp","auth_type":"bearer","key":"","config":{"enable":true},"info":{"id":"1","name":"postgres-mcp","description":"Northwind PostgreSQL MCP"}}]'
     volumes:
       - open-webui:/app/backend/data
-      - ./webui-init.py:/app/backend/webui-init.py:ro
+      - ./webui-init.py:/app/backend/webui-init.py
     depends_on:
-      - mcp
+      mcp:
+        condition: service_healthy
 
 volumes:
   pgdata:
