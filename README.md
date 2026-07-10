@@ -98,6 +98,18 @@ Go to [http://openwebui.localhost](http://openwebui.localhost) and create an adm
 - Go to **Admin Settings → Connections** — Ollama should show as connected at `http://host.docker.internal:11434`
 - Go to **Settings → Tools** — `postgres-mcp` should be listed and connected at `http://mcp:8000/mcp`
 
+**6. Enable chart generation (Jupyter code execution):**
+
+Go to **Admin Settings → Code Execution** and configure:
+
+- **Enable Code Execution** → on
+- **Code Execution Engine** → `Jupyter (Legacy)`
+- **Jupyter URL** → `http://jupyter:8888`
+- **Jupyter Auth** → `Token`
+- **Token** → `open-webui`
+
+Save. The model can now execute Python and return real matplotlib chart images inline.
+
 You can now pick any Ollama model and chat — it will query the Northwind database through the MCP tools.
 
 > **Tip:** Models that generate better charts: `qwen2.5-coder:7b`, `deepseek-coder-v2`, `phi4`. Pull with `ollama pull <model>`.
@@ -187,9 +199,9 @@ Once connected, the model has access to these tools:
 - *"List all tables in the Northwind database"*
 - *"How many customers are there, and which countries do they come from?"*
 - *"Show me the top 10 best-selling products"*
-- *"Show monthly revenue for 1997 as a Chart.js bar chart"*
+- *"Show monthly revenue for 1997 as a pie chart using matplotlib"*
 
-![Monthly Revenue](img/monthly-revenue-bar-chart.png)
+![Monthly Revenue](img/monthly-revenue-pie-chart.png)
 
 - *"Who are our top 20 customers by total spend? Show a horizontal bar chart."*
 
