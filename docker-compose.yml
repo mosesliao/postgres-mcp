@@ -49,6 +49,14 @@ services:
       retries: 10
       start_period: 10s
 
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    restart: unless-stopped
+    environment:
+      JUPYTER_TOKEN: "open-webui"
+    ports:
+      - "8888:8888"
+
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     restart: unless-stopped
@@ -62,6 +70,8 @@ services:
       OLLAMA_BASE_URL: "http://host.docker.internal:11434"
       ENABLE_OLLAMA_API: "true"
       ENABLE_OPENAI_API: "false"
+      CODE_EXECUTION_JUPYTER_URL: "http://jupyter:8888"
+      CODE_EXECUTION_JUPYTER_TOKEN: "open-webui"
       TOOL_SERVER_CONNECTIONS: '[{"url":"http://mcp:8000/mcp","type":"mcp","auth_type":"bearer","key":"","config":{"enable":true},"info":{"id":"1","name":"postgres-mcp","description":"Northwind PostgreSQL MCP"}}]'
     volumes:
       - open-webui:/app/backend/data
