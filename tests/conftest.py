@@ -1,6 +1,7 @@
 import os
-import pytest
+
 import psycopg2
+import pytest
 
 
 @pytest.fixture
