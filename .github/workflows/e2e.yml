@@ -39,14 +39,25 @@ jobs:
       - name: Install and start Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
-          # Bind all interfaces: the default 127.0.0.1 is not reachable from
-          # inside the containers via host.docker.internal, which leaves Open
-          # WebUI with an empty model list.
-          OLLAMA_HOST=0.0.0.0:11434 nohup ollama serve > /tmp/ollama.log 2>&1 &
+          # The installer registers a systemd unit that owns port 11434 and
+          # binds 127.0.0.1, which the containers cannot reach through
+          # host.docker.internal. Override the bind address on the unit; only
+          # start our own process if no unit was installed.
+          if systemctl list-unit-files | grep -q '^ollama\.service'; then
+            sudo mkdir -p /etc/systemd/system/ollama.service.d
+            printf '[Service]\nEnvironment="OLLAMA_HOST=0.0.0.0:11434"\n' \
+              | sudo tee /etc/systemd/system/ollama.service.d/override.conf > /dev/null
+            sudo systemctl daemon-reload
+            sudo systemctl restart ollama
+          else
+            OLLAMA_HOST=0.0.0.0:11434 nohup ollama serve > /tmp/ollama.log 2>&1 &
+          fi
           for _ in $(seq 1 30); do
             curl -sf http://127.0.0.1:11434/api/version && break
             sleep 2
           done
+          # Show the bind address so a regression here is obvious at a glance.
+          ss -lnt | grep 11434
           ollama pull "$E2E_OLLAMA_MODEL"
 
       - name: Start the stack
