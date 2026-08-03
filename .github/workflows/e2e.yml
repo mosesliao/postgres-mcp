@@ -39,7 +39,10 @@ jobs:
       - name: Install and start Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
-          nohup ollama serve > /tmp/ollama.log 2>&1 &
+          # Bind all interfaces: the default 127.0.0.1 is not reachable from
+          # inside the containers via host.docker.internal, which leaves Open
+          # WebUI with an empty model list.
+          OLLAMA_HOST=0.0.0.0:11434 nohup ollama serve > /tmp/ollama.log 2>&1 &
           for _ in $(seq 1 30); do
             curl -sf http://127.0.0.1:11434/api/version && break
             sleep 2
@@ -61,7 +64,16 @@ jobs:
           echo "Open WebUI did not become ready" >&2
           exit 1
 
-      - name: Seed the Open WebUI config and analyst preset
+      # Fails loudly here rather than surfacing later as an empty model list.
+      - name: Check Ollama is reachable from inside the stack
+        run: |
+          docker compose exec -T open-webui python3 -c "
+          import urllib.request
+          url = 'http://host.docker.internal:11434/api/tags'
+          print(urllib.request.urlopen(url, timeout=15).read().decode())
+          "
+
+      - name: Seed the analyst preset
         env:
           NORTHWIND_BASE_MODEL: qwen2.5-coder:1.5b
         run: |
