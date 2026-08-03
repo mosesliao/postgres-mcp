@@ -1,0 +1,143 @@
+name: E2E
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Open WebUI integration + charts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      WEBUI_BASE_URL: http://openwebui.localhost
+      E2E_SCREENSHOT_DIR: artifacts/screenshots
+      # Small, tool-capable model: GitHub runners are CPU-only, so a 4.7GB
+      # llama3 would blow the job timeout.
+      E2E_OLLAMA_MODEL: qwen2.5-coder:1.5b
+      # A model this small will not produce a chart; cap the wait so a failing
+      # chart run does not add ten minutes to every build.
+      E2E_CHART_TIMEOUT: "150"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install test dependencies
+        run: |
+          pip install -e ".[e2e]"
+          playwright install --with-deps chromium
+
+      - name: Resolve the Traefik hostname
+        run: echo "127.0.0.1 openwebui.localhost" | sudo tee -a /etc/hosts
+
+      - name: Install and start Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          # The installer registers a systemd unit that owns port 11434 and
+          # binds 127.0.0.1, which the containers cannot reach through
+          # host.docker.internal. Override the bind address on the unit; only
+          # start our own process if no unit was installed.
+          if systemctl list-unit-files | grep -q '^ollama\.service'; then
+            sudo mkdir -p /etc/systemd/system/ollama.service.d
+            printf '[Service]\nEnvironment="OLLAMA_HOST=0.0.0.0:11434"\n' \
+              | sudo tee /etc/systemd/system/ollama.service.d/override.conf > /dev/null
+            sudo systemctl daemon-reload
+            sudo systemctl restart ollama
+          else
+            OLLAMA_HOST=0.0.0.0:11434 nohup ollama serve > /tmp/ollama.log 2>&1 &
+          fi
+          for _ in $(seq 1 30); do
+            curl -sf http://127.0.0.1:11434/api/version && break
+            sleep 2
+          done
+          # Show the bind address so a regression here is obvious at a glance.
+          ss -lnt | grep 11434
+          ollama pull "$E2E_OLLAMA_MODEL"
+
+      - name: Start the stack
+        run: docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build
+
+      - name: Wait for Open WebUI
+        run: |
+          for _ in $(seq 1 90); do
+            if curl -sf http://openwebui.localhost/health > /dev/null; then
+              echo "Open WebUI is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Open WebUI did not become ready" >&2
+          exit 1
+
+      # Fails loudly here rather than surfacing later as an empty model list.
+      - name: Check Ollama is reachable from inside the stack
+        run: |
+          docker compose exec -T open-webui python3 -c "
+          import urllib.request
+          url = 'http://host.docker.internal:11434/api/tags'
+          print(urllib.request.urlopen(url, timeout=15).read().decode())
+          "
+
+      - name: Seed the analyst preset
+        env:
+          NORTHWIND_BASE_MODEL: qwen2.5-coder:1.5b
+        run: |
+          docker compose exec -T \
+            -e NORTHWIND_BASE_MODEL="$NORTHWIND_BASE_MODEL" \
+            open-webui python3 /app/backend/webui-init.py
+          docker compose restart open-webui
+          for _ in $(seq 1 60); do
+            curl -sf http://openwebui.localhost/health > /dev/null && break
+            sleep 2
+          done
+
+      # Gating: deterministic, no model inference involved.
+      - name: Verify the admin integration
+        run: pytest tests/ -m "e2e and not chart" -v --tb=short
+
+      # Non-gating: a 1.5B model on CPU is not a reliable chart generator, so a
+      # failure here is reported via the uploaded screenshots rather than
+      # blocking the merge.
+      - name: Generate chart screenshots
+        id: charts
+        continue-on-error: true
+        run: |
+          # Separate --output dir: pytest-playwright clears it on start, which
+          # would wipe the integration screenshot captured by the step above.
+          pytest tests/ -m "e2e and chart" -v --tb=short \
+            --screenshot=only-on-failure --output=artifacts/playwright
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: |
+            artifacts/screenshots/
+            artifacts/playwright/
+          if-no-files-found: warn
+
+      - name: Dump container logs
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+
+      - name: Report chart outcome
+        if: always()
+        run: |
+          if [ "${{ steps.charts.outcome }}" = "failure" ]; then
+            echo "::warning::Chart scenarios did not produce a rendered image. \
+            See the e2e-screenshots artifact."
+          fi
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.e2e.yml down -v

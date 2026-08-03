@@ -57,7 +57,8 @@ def describe_table(table_name: str) -> list[dict[str, Any]]:
     """
     _check_identifier(table_name)
     with _cursor() as cur:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT
                 c.column_name,
                 c.data_type,
@@ -78,7 +79,9 @@ def describe_table(table_name: str) -> list[dict[str, Any]]:
             WHERE c.table_name   = %s
               AND c.table_schema = 'public'
             ORDER BY c.ordinal_position
-        """, (table_name, table_name))
+        """,
+            (table_name, table_name),
+        )
         rows = cur.fetchall()
     if not rows:
         raise ValueError(f"Table {table_name!r} not found in public schema")
@@ -91,7 +94,9 @@ def sample_table(table_name: str, limit: int = 5) -> list[dict[str, Any]]:
     _check_identifier(table_name)
     limit = max(1, min(limit, 100))
     with _cursor() as cur:
-        cur.execute(f'SELECT * FROM public."{table_name}" LIMIT %s', (limit,))
+        # Table names cannot be parameterised; _check_identifier above rejects
+        # anything outside a strict identifier pattern.
+        cur.execute(f'SELECT * FROM public."{table_name}" LIMIT %s', (limit,))  # noqa: S608
         return [dict(r) for r in cur.fetchall()]
 
 
@@ -105,10 +110,7 @@ def query(sql: str) -> list[dict[str, Any]]:
     normalised = sql.strip().lstrip(";").lstrip()
     first_word = normalised.split()[0].upper() if normalised else ""
     if first_word not in ("SELECT", "WITH"):
-        raise ValueError(
-            "Only SELECT / WITH queries are permitted. "
-            f"Got: {first_word!r}"
-        )
+        raise ValueError("Only SELECT / WITH queries are permitted. " f"Got: {first_word!r}")
     with _cursor() as cur:
         cur.execute(sql)
         rows = cur.fetchmany(500)

@@ -83,15 +83,21 @@ ollama serve
 docker compose up -d
 ```
 
-**3. Seed the Open WebUI config** (first time only — sets up the MCP connection automatically):
+**3. Seed the Northwind Analyst preset** (first time only):
 
 ```bash
 docker exec postgres_mcp-open-webui-1 python3 /app/backend/webui-init.py
 ```
 
+This creates a **Northwind Analyst** model preset with a built-in system prompt that automatically uses matplotlib for all chart and graph requests.
+
+The MCP tool server (`http://mcp:8000/mcp`), the Ollama connection (`http://host.docker.internal:11434`) and Jupyter code execution are configured by environment variables in `docker-compose.yml`, so they need no seeding.
+
 **4. Open the UI:**
 
 Go to [http://openwebui.localhost](http://openwebui.localhost) and create an admin account on first launch.
+
+Select **Northwind Analyst** from the model dropdown to use the preset with matplotlib charts enabled by default. You can also select any other Ollama model directly.
 
 **5. Verify connections:**
 
@@ -209,6 +215,49 @@ Once connected, the model has access to these tools:
 
 ---
 
+## Testing
+
+Unit and security tests run against a local Postgres and need nothing else:
+
+```bash
+pip install -e ".[test]"
+pytest tests/
+```
+
+The end-to-end suite drives the real stack in a browser. It is opt-in via a
+marker so the command above stays fast:
+
+```bash
+pip install -e ".[e2e]"
+playwright install chromium
+docker compose up -d
+pytest tests/ -m e2e
+```
+
+It verifies that Open WebUI's tool server config is valid, that Open WebUI can
+reach the MCP server and list its tools, that the Northwind Analyst preset
+carries the matplotlib system prompt, and that the admin integrations page
+renders. Screenshots land in `artifacts/screenshots/`.
+
+The `@chart` scenarios send real prompts and wait for a rendered chart:
+
+```bash
+pytest tests/ -m "e2e and chart"
+```
+
+These need a model capable enough to follow the system prompt and call the MCP
+tools — `llama3` or larger. CI runs them against a 1.5B model on a CPU-only
+runner, where they are not expected to pass, so they never fail the build.
+
+To run the suite against an instance that already has an account, point it at
+those credentials:
+
+```bash
+E2E_ADMIN_EMAIL=you@example.com E2E_ADMIN_PASSWORD=... pytest tests/ -m e2e
+```
+
+---
+
 ## Security
 
 All database access is **read-only**, enforced at two levels:
@@ -231,7 +280,7 @@ To also delete stored data (resets the database and Open WebUI config):
 docker compose down -v
 ```
 
-> After `down -v`, re-run the webui-init step on next startup to restore the MCP connection config.
+> After `down -v`, re-run the webui-init step on next startup to restore the Northwind Analyst model preset. Connection settings come from `docker-compose.yml` and are restored automatically.
 
 ---
 
