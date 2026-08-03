@@ -290,24 +290,34 @@ def tool_specs_include(ctx, expected):
     assert not missing, f"Missing tools {sorted(missing)}; MCP exposed {sorted(names)}"
 
 
-@then(parsers.parse('the model "{model_id}" should be present'))
-def model_present(ctx, model_id):
+@then(parsers.parse('the model "{model_id}" should be offered'))
+def model_offered(ctx, model_id):
     payload = ctx["response"].json()
     models = payload.get("data", payload) if isinstance(payload, dict) else payload
-    ctx["model"] = next((m for m in models if m.get("id") == model_id), None)
     available = [m.get("id") for m in models]
-    assert ctx["model"] is not None, f"Model {model_id!r} not found. Available: {available}"
+    assert model_id in available, f"Model {model_id!r} not offered. Available: {available}"
+
+
+@when(parsers.parse('I request the "{model_id}" model definition'))
+def request_model_definition(webui, ctx, model_id):
+    ctx["response"] = webui.model_by_id(model_id)
 
 
 @then("its system prompt should mention matplotlib")
 def system_prompt_mentions_matplotlib(ctx):
-    model = ctx["model"]
+    response = ctx["response"]
+    assert response.status_code == 200, (
+        f"Could not read the model definition (HTTP {response.status_code}): "
+        f"{response.text[:300]}"
+    )
+    model = response.json()
     # Open WebUI applies params.system; meta.system alone is never sent to the
     # model, so assert on the field that actually reaches the request.
     system = (model.get("params") or {}).get("system", "")
-    assert (
-        "matplotlib" in system.lower()
-    ), f"Expected the system prompt to mention matplotlib, got: {system!r}"
+    assert "matplotlib" in system.lower(), (
+        f"Expected the system prompt to mention matplotlib, got: {system!r}. "
+        f"Response keys: {sorted(model)}"
+    )
 
 
 # ---------------------------------------------------------------------------

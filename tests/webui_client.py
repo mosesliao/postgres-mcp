@@ -121,3 +121,12 @@ class WebUIClient:
 
     def models(self) -> requests.Response:
         return self.get("/api/models")
+
+    def model_by_id(self, model_id: str) -> requests.Response:
+        """Fetch a single model definition.
+
+        /api/models strips params to avoid exposing admin-curated config, so
+        the system prompt is only visible here, and only to callers with write
+        access (an admin under the default BYPASS_ADMIN_ACCESS_CONTROL).
+        """
+        return self.get(f"/api/v1/models/model?id={model_id}")

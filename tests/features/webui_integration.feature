@@ -21,8 +21,9 @@ Feature: Open WebUI admin integration
 
   Scenario: The Northwind Analyst preset carries the matplotlib system prompt
     When I request the model list
-    Then the model "northwind-analyst" should be present
-    And its system prompt should mention matplotlib
+    Then the model "northwind-analyst" should be offered
+    When I request the "northwind-analyst" model definition
+    Then its system prompt should mention matplotlib
 
   # --- Rendered admin UI ---
 
