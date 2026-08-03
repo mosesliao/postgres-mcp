@@ -3,7 +3,9 @@ name = "postgres-mcp"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "mcp[cli]>=1.0.0",
+    # server.py targets the 1.x FastMCP API. mcp 2.0 removed
+    # mcp.server.fastmcp, so an unbounded pin breaks every fresh install.
+    "mcp[cli]>=1.0.0,<2.0.0",
     "psycopg2-binary>=2.9",
     "python-dotenv>=1.0",
 ]
