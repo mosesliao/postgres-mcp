@@ -70,6 +70,8 @@ services:
       OLLAMA_BASE_URL: "http://host.docker.internal:11434"
       ENABLE_OLLAMA_API: "true"
       ENABLE_OPENAI_API: "false"
+      # The first account created is always allowed through and becomes admin.
+      ENABLE_SIGNUP: "false"
       CODE_EXECUTION_JUPYTER_URL: "http://jupyter:8888"
       CODE_EXECUTION_JUPYTER_TOKEN: "open-webui"
       TOOL_SERVER_CONNECTIONS: '[{"url":"http://mcp:8000/mcp","path":"openapi.json","type":"mcp","auth_type":"bearer","headers":null,"key":"","config":{"enable":true,"function_name_filter_list":"","access_grants":[]},"info":{"id":"1","name":"postgres-mcp","description":"Northwind PostgreSQL MCP"},"spec_type":"url","spec":""}]'

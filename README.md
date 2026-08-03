@@ -83,16 +83,15 @@ ollama serve
 docker compose up -d
 ```
 
-**3. Seed the Open WebUI config** (first time only):
+**3. Seed the Northwind Analyst preset** (first time only):
 
 ```bash
 docker exec postgres_mcp-open-webui-1 python3 /app/backend/webui-init.py
 ```
 
-This sets up:
-- The MCP tool server connection (`http://mcp:8000/mcp`)
-- The Ollama connection (`http://host.docker.internal:11434`)
-- A **Northwind Analyst** model preset with a built-in system prompt that automatically uses matplotlib for all chart and graph requests
+This creates a **Northwind Analyst** model preset with a built-in system prompt that automatically uses matplotlib for all chart and graph requests.
+
+The MCP tool server (`http://mcp:8000/mcp`), the Ollama connection (`http://host.docker.internal:11434`) and Jupyter code execution are configured by environment variables in `docker-compose.yml`, so they need no seeding.
 
 **4. Open the UI:**
 
@@ -238,7 +237,7 @@ To also delete stored data (resets the database and Open WebUI config):
 docker compose down -v
 ```
 
-> After `down -v`, re-run the webui-init step on next startup to restore the MCP connection, Ollama config, and Northwind Analyst model preset.
+> After `down -v`, re-run the webui-init step on next startup to restore the Northwind Analyst model preset. Connection settings come from `docker-compose.yml` and are restored automatically.
 
 ---
 
