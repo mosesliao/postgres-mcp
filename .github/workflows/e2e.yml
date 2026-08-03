@@ -19,6 +19,9 @@ jobs:
       # Small, tool-capable model: GitHub runners are CPU-only, so a 4.7GB
       # llama3 would blow the job timeout.
       E2E_OLLAMA_MODEL: qwen2.5-coder:1.5b
+      # A model this small will not produce a chart; cap the wait so a failing
+      # chart run does not add ten minutes to every build.
+      E2E_CHART_TIMEOUT: "150"
 
     steps:
       - uses: actions/checkout@v4
@@ -108,15 +111,19 @@ jobs:
         id: charts
         continue-on-error: true
         run: |
+          # Separate --output dir: pytest-playwright clears it on start, which
+          # would wipe the integration screenshot captured by the step above.
           pytest tests/ -m "e2e and chart" -v --tb=short \
-            --screenshot=only-on-failure --output=artifacts/screenshots
+            --screenshot=only-on-failure --output=artifacts/playwright
 
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-screenshots
-          path: artifacts/screenshots/
+          path: |
+            artifacts/screenshots/
+            artifacts/playwright/
           if-no-files-found: warn
 
       - name: Dump container logs

@@ -215,6 +215,49 @@ Once connected, the model has access to these tools:
 
 ---
 
+## Testing
+
+Unit and security tests run against a local Postgres and need nothing else:
+
+```bash
+pip install -e ".[test]"
+pytest tests/
+```
+
+The end-to-end suite drives the real stack in a browser. It is opt-in via a
+marker so the command above stays fast:
+
+```bash
+pip install -e ".[e2e]"
+playwright install chromium
+docker compose up -d
+pytest tests/ -m e2e
+```
+
+It verifies that Open WebUI's tool server config is valid, that Open WebUI can
+reach the MCP server and list its tools, that the Northwind Analyst preset
+carries the matplotlib system prompt, and that the admin integrations page
+renders. Screenshots land in `artifacts/screenshots/`.
+
+The `@chart` scenarios send real prompts and wait for a rendered chart:
+
+```bash
+pytest tests/ -m "e2e and chart"
+```
+
+These need a model capable enough to follow the system prompt and call the MCP
+tools — `llama3` or larger. CI runs them against a 1.5B model on a CPU-only
+runner, where they are not expected to pass, so they never fail the build.
+
+To run the suite against an instance that already has an account, point it at
+those credentials:
+
+```bash
+E2E_ADMIN_EMAIL=you@example.com E2E_ADMIN_PASSWORD=... pytest tests/ -m e2e
+```
+
+---
+
 ## Security
 
 All database access is **read-only**, enforced at two levels:
