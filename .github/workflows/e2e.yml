@@ -107,7 +107,9 @@ jobs:
       - name: Generate chart screenshots
         id: charts
         continue-on-error: true
-        run: pytest tests/ -m "e2e and chart" -v --tb=short
+        run: |
+          pytest tests/ -m "e2e and chart" -v --tb=short \
+            --screenshot=only-on-failure --output=artifacts/screenshots
 
       - name: Upload screenshots
         if: always()

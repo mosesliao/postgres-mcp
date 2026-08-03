@@ -149,6 +149,37 @@ def wait_for_generation_to_settle(page, timeout=CHART_TIMEOUT_MS):
         page.wait_for_timeout(1000)
 
 
+MODAL_DISMISS_SELECTORS = [
+    "button[aria-label*='Close' i]",
+    "button:has-text('Okay')",
+    "button:has-text('Got it')",
+    "button:has-text('Dismiss')",
+]
+
+
+def dismiss_modals(page, attempts=4):
+    """Close first-run dialogs that overlay the chat.
+
+    A freshly created account gets a changelog modal whose overlay intercepts
+    pointer events, so clicks land on it instead of the chat input.
+    """
+    for _ in range(attempts):
+        try:
+            if not page.locator("div[role='dialog']").first.is_visible():
+                return
+        except Exception:  # noqa: BLE001 - dialog may already have detached
+            return
+        button = first_visible(page, MODAL_DISMISS_SELECTORS, timeout=0)
+        try:
+            if button is not None:
+                button.click()
+            else:
+                page.keyboard.press("Escape")
+        except Exception:  # noqa: BLE001 - fall back to the keyboard
+            page.keyboard.press("Escape")
+        page.wait_for_timeout(750)
+
+
 def fill_chat_input(locator, prompt):
     """Open WebUI uses a textarea in some builds and contenteditable in others."""
     is_textarea = locator.evaluate("el => el.tagName.toLowerCase() === 'textarea'")
@@ -226,10 +257,12 @@ def open_integrations_page(page):
 @when("I start a new chat with the analyst model")
 def start_chat(page):
     page.goto(f"{base_url()}/?models={MODEL_ID}", wait_until="networkidle")
+    dismiss_modals(page)
 
 
 @when(parsers.parse('I send the prompt "{prompt}"'))
 def send_prompt(page, prompt):
+    dismiss_modals(page)
     chat_input = first_visible(page, CHAT_INPUT_SELECTORS)
     assert chat_input is not None, "Could not find the chat input"
     chat_input.click()
