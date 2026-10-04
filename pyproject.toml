@@ -3,7 +3,9 @@ name = "postgres-mcp"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "mcp[cli]>=1.0.0",
+    # server.py targets the 1.x FastMCP API. mcp 2.0 removed
+    # mcp.server.fastmcp, so an unbounded pin breaks every fresh install.
+    "mcp[cli]>=1.0.0,<2.0.0",
     "psycopg2-binary>=2.9",
     "python-dotenv>=1.0",
 ]
@@ -17,10 +19,23 @@ test = [
     "pytest-bdd>=7.0",
     "pytest-mock>=3.14",
 ]
+e2e = [
+    "pytest>=8.0",
+    "pytest-bdd>=7.0",
+    "pytest-playwright>=0.5",
+    "requests>=2.32",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+# The end-to-end suite needs the full docker compose stack, so it is opt-in via
+# `pytest -m e2e`. Plain `pytest tests/` stays fast and hermetic.
+addopts = "-m 'not e2e'"
+markers = [
+    "e2e: browser-driven tests requiring the full docker compose stack",
+    "chart: LLM-dependent chart generation (slow, non-deterministic)",
+]
 
 [tool.ruff]
 line-length = 100
@@ -61,3 +76,9 @@ skips = ["B101"]  # assert in tests
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# The server is a single top-level module rather than a `postgres_mcp/` package,
+# so hatchling cannot infer what to ship and needs it named explicitly.
+[tool.hatch.build.targets.wheel]
+only-include = ["server.py"]
+

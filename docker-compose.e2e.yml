@@ -1,0 +1,10 @@
+# CI overlay for the end-to-end suite.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d
+#
+# Docker Desktop defines host.docker.internal for us, but Linux CI runners do
+# not, so the Ollama base URL baked into docker-compose.yml would not resolve.
+services:
+  open-webui:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

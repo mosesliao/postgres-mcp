@@ -1,53 +1,88 @@
-import os
-import pytest
+from unittest.mock import MagicMock, patch
+
 import psycopg2
-from unittest.mock import MagicMock, patch, call
-from pytest_bdd import given, when, then, scenario, parsers
+import pytest
+from pytest_bdd import given, parsers, scenario, then, when
 
 import server
-
 
 # ---------------------------------------------------------------------------
 # Scenarios
 # ---------------------------------------------------------------------------
 
+
 @scenario("../features/error_handling.feature", "Query fails clearly when DATABASE_URL is not set")
-def test_no_database_url(): pass
+def test_no_database_url():
+    pass
 
-@scenario("../features/error_handling.feature", "Query fails clearly when the database is unreachable")
-def test_db_unreachable_query(): pass
 
-@scenario("../features/error_handling.feature", "list_tables fails clearly when the database is unreachable")
-def test_db_unreachable_list_tables(): pass
+@scenario(
+    "../features/error_handling.feature", "Query fails clearly when the database is unreachable"
+)
+def test_db_unreachable_query():
+    pass
 
-@scenario("../features/error_handling.feature", "describe_table raises an error for a table that does not exist")
-def test_unknown_table(): pass
+
+@scenario(
+    "../features/error_handling.feature",
+    "list_tables fails clearly when the database is unreachable",
+)
+def test_db_unreachable_list_tables():
+    pass
+
+
+@scenario(
+    "../features/error_handling.feature",
+    "describe_table raises an error for a table that does not exist",
+)
+def test_unknown_table():
+    pass
+
 
 @scenario("../features/error_handling.feature", "Malformed SQL raises a database error")
-def test_malformed_sql(): pass
+def test_malformed_sql():
+    pass
+
 
 @scenario("../features/error_handling.feature", "sample_table limit is capped at 100 rows")
-def test_limit_cap(): pass
+def test_limit_cap():
+    pass
+
 
 @scenario("../features/error_handling.feature", "sample_table limit is at least 1 row")
-def test_limit_floor(): pass
+def test_limit_floor():
+    pass
+
 
 @scenario("../features/error_handling.feature", "query results are capped at 500 rows")
-def test_query_row_cap(): pass
+def test_query_row_cap():
+    pass
+
 
 @scenario("../features/error_handling.feature", "query returns an empty list when no rows match")
-def test_empty_result(): pass
+def test_empty_result():
+    pass
 
-@scenario("../features/error_handling.feature", "Database connection is closed after a successful query")
-def test_conn_closed_on_success(): pass
 
-@scenario("../features/error_handling.feature", "Database connection is closed even when a query raises an error")
-def test_conn_closed_on_error(): pass
+@scenario(
+    "../features/error_handling.feature", "Database connection is closed after a successful query"
+)
+def test_conn_closed_on_success():
+    pass
+
+
+@scenario(
+    "../features/error_handling.feature",
+    "Database connection is closed even when a query raises an error",
+)
+def test_conn_closed_on_error():
+    pass
 
 
 # ---------------------------------------------------------------------------
 # Shared state
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def ctx():
@@ -57,6 +92,7 @@ def ctx():
 # ---------------------------------------------------------------------------
 # Given
 # ---------------------------------------------------------------------------
+
 
 @given("the MCP server is initialised")
 def mcp_initialised():
@@ -86,6 +122,7 @@ def db_many_rows(ctx):
 # ---------------------------------------------------------------------------
 # When
 # ---------------------------------------------------------------------------
+
 
 @when(parsers.parse('I call query with "{sql}"'))
 def call_query(ctx, sql):
@@ -142,41 +179,40 @@ def call_sample_table_with_limit(ctx, table_name, limit):
 # Then
 # ---------------------------------------------------------------------------
 
+
 @then("it should raise a RuntimeError")
 def raises_runtime_error(ctx):
-    assert isinstance(ctx["error"], RuntimeError), (
-        f"Expected RuntimeError, got {type(ctx['error'])}: {ctx['error']}"
-    )
+    assert isinstance(
+        ctx["error"], RuntimeError
+    ), f"Expected RuntimeError, got {type(ctx['error'])}: {ctx['error']}"
 
 
 @then("it should raise a ValueError")
 def raises_value_error(ctx):
-    assert isinstance(ctx["error"], ValueError), (
-        f"Expected ValueError, got {type(ctx['error'])}: {ctx['error']}"
-    )
+    assert isinstance(
+        ctx["error"], ValueError
+    ), f"Expected ValueError, got {type(ctx['error'])}: {ctx['error']}"
 
 
 @then("it should raise a database connection error")
 def raises_connection_error(ctx):
     assert ctx["error"] is not None, "Expected an error but none was raised"
-    assert isinstance(ctx["error"], (psycopg2.OperationalError, Exception)), (
-        f"Expected a connection error, got {type(ctx['error'])}: {ctx['error']}"
-    )
+    assert isinstance(
+        ctx["error"], (psycopg2.OperationalError, Exception)
+    ), f"Expected a connection error, got {type(ctx['error'])}: {ctx['error']}"
 
 
 @then("it should raise a database syntax error")
 def raises_syntax_error(ctx):
     assert ctx["error"] is not None, "Expected an error but none was raised"
-    assert isinstance(ctx["error"], psycopg2.Error), (
-        f"Expected psycopg2.Error, got {type(ctx['error'])}: {ctx['error']}"
-    )
+    assert isinstance(
+        ctx["error"], psycopg2.Error
+    ), f"Expected psycopg2.Error, got {type(ctx['error'])}: {ctx['error']}"
 
 
 @then(parsers.parse('the error message should contain "{text}"'))
 def error_message_contains(ctx, text):
-    assert text in str(ctx["error"]), (
-        f"Expected {text!r} in error message, got: {ctx['error']}"
-    )
+    assert text in str(ctx["error"]), f"Expected {text!r} in error message, got: {ctx['error']}"
 
 
 @then(parsers.parse("the SQL executed should use a limit of {expected_limit:d}"))
@@ -185,9 +221,7 @@ def sql_uses_limit(ctx, expected_limit):
     executed_sql = mock_cur.execute.call_args
     assert executed_sql is not None, "cursor.execute was never called"
     args = executed_sql[0]
-    assert args[1] == (expected_limit,), (
-        f"Expected limit {expected_limit}, got {args[1]}"
-    )
+    assert args[1] == (expected_limit,), f"Expected limit {expected_limit}, got {args[1]}"
 
 
 @then(parsers.parse("the result should contain at most {max_rows:d} rows"))
